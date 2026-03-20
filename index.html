@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
 <title>EMPIRE — Billionaire Tycoon</title>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Orbitron:wght@700;900&display=swap" rel="stylesheet"/>
+<!-- ADSENSE: Replace ca-pub-XXXXXXXXXXXXXXXX with your Publisher ID from adsense.google.com -->
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
 <style>
 :root{
   --bg:#0F1117;--bg2:#161B27;--bg3:#1E2535;
@@ -22,8 +24,9 @@
   --border:#E2E8F0;--border2:#CBD5E1;
   --text:#0F172A;--text2:#475569;--text3:#94A3B8;
 }
+html,body{overscroll-behavior:none;overscroll-behavior-y:none;}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;}
-body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;overflow:hidden;width:100vw;height:100vh;transition:background 0.3s,color 0.3s;}
+body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;overflow:hidden;width:100vw;height:100vh;transition:background 0.3s,color 0.3s;touch-action:manipulation;}
 #app{display:flex;flex-direction:column;height:100vh;max-width:480px;margin:0 auto;position:relative;overflow:hidden;}
 #topbar{background:var(--bg2);padding:10px 14px 8px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);z-index:20;}
 .logo{font-family:'Orbitron',sans-serif;font-size:0.95rem;font-weight:900;color:var(--gold);}
@@ -378,6 +381,17 @@ canvas.si-chart{width:100%;height:48px;display:block;}
 
 </div><!-- content -->
 
+<!-- ADSENSE BANNER AD — Replace data-ad-slot with your real Ad Slot ID from adsense.google.com -->
+<div id="adsense-banner" style="width:100%;max-width:480px;margin:0 auto;text-align:center;background:#000;position:fixed;bottom:58px;left:50%;transform:translateX(-50%);z-index:49;">
+  <ins class="adsbygoogle"
+    style="display:block;width:100%;height:50px;"
+    data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+    data-ad-slot="XXXXXXXXXX"
+    data-ad-format="banner"
+    data-full-width-responsive="false"></ins>
+  <script>(adsbygoogle=window.adsbygoogle||[]).push({});</script>
+</div>
+
 <div id="bottomnav">
   <div class="nav-item active" onclick="switchTab('tap')" id="nav-tap"><div class="nav-icon">💰</div><div class="nav-label">Tap</div></div>
   <div class="nav-item" onclick="switchTab('empire')" id="nav-empire"><div class="nav-icon">🏙️</div><div class="nav-label">Empire</div></div>
@@ -582,7 +596,18 @@ function loadG(){
   }catch(e){}
   return defG();
 }
-function saveG(){G.lastSave=Date.now();localStorage.setItem('empireV4',JSON.stringify(G));}
+function saveG(){
+  G.lastSave=Date.now();
+  try{
+    localStorage.setItem('empireV4',JSON.stringify(G));
+    localStorage.setItem('empireV4_bk',JSON.stringify(G));
+  }catch(e){}
+}
+
+// Save when app goes to background or closes
+document.addEventListener('visibilitychange',()=>{if(document.hidden) saveG();});
+window.addEventListener('pagehide',saveG);
+window.addEventListener('beforeunload',saveG);
 
 // OFFLINE EARNINGS — capped at 30 minutes max
 (function(){
@@ -1414,9 +1439,9 @@ function loop(){
     document.getElementById('ts3').textContent=fmt(passive)+'/s';
   }
 
-  // Every 3s
+  // Every 5s — save and update everything
   saveT+=dt;
-  if(saveT>3){
+  if(saveT>5){
     saveT=0;
     updatePrices(); updateForbes();
     if(activeTab==='stocks'){
@@ -1442,6 +1467,16 @@ function loop(){
 
   requestAnimationFrame(loop);
 }
+
+// Prevent pull to refresh on Android WebView
+document.addEventListener('touchstart',e=>{if(e.touches.length>1) e.preventDefault();},{passive:false});
+let lastY=0;
+document.addEventListener('touchmove',e=>{
+  const y=e.touches[0].clientY;
+  const el=e.target.closest('#content');
+  if(!el||el.scrollTop===0&&y>lastY) e.preventDefault();
+  lastY=y;
+},{passive:false});
 
 // ════════════════════════════════════
 // INIT
