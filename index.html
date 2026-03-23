@@ -73,14 +73,7 @@ body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;over
 .bc{font-size:0.72rem;font-weight:700;color:var(--gold);}
 .bl{font-size:0.56rem;color:var(--text3);}
 
-/* WATCH AD */
-.watch-ad-wrap{margin:8px 12px 0;}
-.watch-ad-btn{background:linear-gradient(135deg,#7C3AED,#5B21B6);border:none;color:#fff;font-family:'Outfit',sans-serif;font-size:0.82rem;font-weight:700;padding:12px;border-radius:12px;cursor:pointer;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;}
-.watch-ad-btn:disabled{opacity:0.45;cursor:not-allowed;}
-.watch-ad-active{background:var(--purple2);border:1px solid var(--purple);border-radius:10px;padding:8px 13px;margin-top:6px;text-align:center;display:none;}
-.watch-ad-active.show{display:block;}
-.waa-lbl{font-size:0.62rem;color:var(--purple);font-weight:700;}
-.waa-val{font-family:'Orbitron',sans-serif;font-size:0.95rem;font-weight:700;color:var(--text);margin-top:2px;}
+
 
 /* MILESTONES */
 .ms-section{padding:8px 12px 4px;}
@@ -336,17 +329,9 @@ canvas.si-chart{width:100%;height:48px;display:block;}
   </div>
   <div class="boost-hdr">⚡ TAP BOOSTS</div>
   <div class="boost-list" id="boost-list"></div>
-  <div class="watch-ad-wrap" id="watch-ad-wrap" style="display:none;">
-    <button class="watch-ad-btn" id="watch-ad-btn" ontouchstart="watchAd()" onclick="watchAd()">
-      📺 Watch Ad — 2× Income for 15s
-    </button>
-    <div class="watch-ad-active" id="watch-ad-active">
-      <div class="waa-lbl">⚡ 2× INCOME ACTIVE</div>
-      <div class="waa-val" id="waa-countdown">15s</div>
-    </div>
-  </div>
+
   <div class="ms-section">
-    <div class="ms-hdr">🎯 INCOME MILESTONES</div>
+    <div class="ms-hdr">💰 INCOME MILESTONES</div>
     <div id="milestone-list"></div>
   </div>
 </div>
@@ -597,6 +582,22 @@ const MILESTONES=[
   {id:'m12',target:100e9,    mult:3.0, label:'First $100B',   icon:'🔱'},
 ];
 
+// Tap-count milestone unlocks — give flat +tap bonus
+const TAP_MILESTONES=[
+  {id:'t1',  taps:100,     bonus:0.5,   label:'100 Taps',     icon:'👊'},
+  {id:'t2',  taps:500,     bonus:1,     label:'500 Taps',     icon:'✊'},
+  {id:'t3',  taps:1000,    bonus:2,     label:'1K Taps',      icon:'💪'},
+  {id:'t4',  taps:2500,    bonus:4,     label:'2.5K Taps',    icon:'⚡'},
+  {id:'t5',  taps:5000,    bonus:8,     label:'5K Taps',      icon:'🔥'},
+  {id:'t6',  taps:10000,   bonus:20,    label:'10K Taps',     icon:'💥'},
+  {id:'t7',  taps:25000,   bonus:60,    label:'25K Taps',     icon:'🌟'},
+  {id:'t8',  taps:50000,   bonus:150,   label:'50K Taps',     icon:'🚀'},
+  {id:'t9',  taps:100000,  bonus:400,   label:'100K Taps',    icon:'👑'},
+  {id:'t10', taps:250000,  bonus:1200,  label:'250K Taps',    icon:'🔱'},
+  {id:'t11', taps:500000,  bonus:4000,  label:'500K Taps',    icon:'⭐'},
+  {id:'t12', taps:1000000, bonus:15000, label:'1M Taps',      icon:'🌌'},
+];
+
 const EVENTS=[
   {msg:'📉 MARKET CRASH! Income -50% for 40s',  type:'crash',mult:0.5, dur:40,crash:true},
   {msg:'🚀 MARKET BOOM! Income +70% for 20s',   type:'boom', mult:1.7, dur:20},
@@ -607,7 +608,7 @@ const EVENTS=[
   {msg:'₿ CRYPTO SURGE! Crypto prices spike!',  type:'csurge'},
   {msg:'🎰 LUCKY! Random biz gets 5 free upgrades!',type:'lucky'},
   {msg:'⚠️ SUPPLY CRISIS! Income -20% for 35s', type:'supply',mult:0.8, dur:35},
-  {msg:'🔥 VIRAL! Tap income x3 for 15s',        type:'viral', mult:3.0, dur:15,tapOnly:true},
+  {msg:'🔥 VIRAL! Tap income x3 for 15s',        type:'viral', mult:3.0, dur:15},
 ];
 
 const RARITY_COL={common:'#94A3B8',uncommon:'#10B981',rare:'#3B82F6',epic:'#8B5CF6',legendary:'#F59E0B',omega:'#FF00FF'};
@@ -630,8 +631,7 @@ function defG(){
     tapPwr:0.5,tapMlt:1,autoTap:0,
     prestigeMult:1,prestigeCount:0,
     allMult:1,tapMult2:1,passiveMult:1,
-    milestoneMult:1,milestonesUnlocked:{},
-    watchAdMult:1,watchAdTimer:0,
+    milestoneMult:1,milestonesUnlocked:{},tapMilestonesUnlocked:{},
     businesses:{},stocks:stocks,crypto:crypto,
     shopItems:{},boosts:{},collectibles:{},
     marketEvent:null,marketMult:1,marketTimer:0,
@@ -644,7 +644,28 @@ var G=loadG();
 function loadG(){
   try{
     var s=localStorage.getItem('empireV5');
-    if(s){var p=JSON.parse(s);var d=defG();p.stocks=Object.assign({},d.stocks,p.stocks||{});p.crypto=Object.assign({},d.crypto,p.crypto||{});return Object.assign({},d,p);}
+    if(s){
+      var p=JSON.parse(s);
+      var d=defG();
+      p.stocks=Object.assign({},d.stocks,p.stocks||{});
+      p.crypto=Object.assign({},d.crypto,p.crypto||{});
+      var g=Object.assign({},d,p);
+      // Clamp multipliers to prevent localStorage tampering
+      g.allMult=Math.min(g.allMult||1, 50);
+      g.tapMult2=Math.min(g.tapMult2||1, 50);
+      g.passiveMult=Math.min(g.passiveMult||1, 50);
+      g.milestoneMult=Math.min(g.milestoneMult||1, 500);
+      g.prestigeMult=Math.min(g.prestigeMult||1, Math.pow(2,30));
+      g.tapMlt=Math.min(g.tapMlt||1, Math.pow(2,10));
+      g.tapPwr=Math.min(g.tapPwr||0.5, 1e9);
+      g.autoTap=Math.min(g.autoTap||0, 1e12);
+      g.balance=Math.min(g.balance||0, 1e18);
+      g.totalEarned=Math.min(g.totalEarned||0, 1e18);
+      g.prestigeCount=Math.min(Math.max(0,Math.floor(g.prestigeCount||0)),30);
+      // Recalculate prestigeMult from count to prevent tampering
+      if(g.prestigeCount>0) g.prestigeMult=Math.pow(2,g.prestigeCount);
+      return g;
+    }
   }catch(e){}
   return defG();
 }
@@ -658,14 +679,17 @@ document.addEventListener('visibilitychange',function(){if(document.hidden) save
 window.addEventListener('pagehide',saveG);
 window.addEventListener('beforeunload',saveG);
 
-// Offline — max 30 min
+// Offline — max 8 hours, validate timestamp is reasonable
 (function(){
   if(!G.lastSave) return;
-  var el=Math.min((Date.now()-G.lastSave)/1000,1800);
+  var now=Date.now();
+  // Reject if lastSave is in the future or more than 30 days ago (tampered)
+  if(G.lastSave>now||G.lastSave<now-30*24*3600*1000){G.lastSave=now;return;}
+  var el=Math.min((now-G.lastSave)/1000,28800); // max 8 hours
   if(el<10) return;
   var r=calcPassive();
   var earn=r*el;
-  if(earn>0){G.balance+=earn;G.totalEarned+=earn;setTimeout(function(){toast('Offline: +'+fmt(earn)+' (30 min max)');},1500);}
+  if(earn>0){G.balance+=earn;G.totalEarned+=earn;setTimeout(function(){toast('Offline: +'+fmt(earn)+' (8 hr max)');},1500);}
 })();
 
 if(!G.darkMode){document.documentElement.setAttribute('data-theme','light');document.getElementById('theme-toggle').classList.remove('on');}
@@ -704,21 +728,21 @@ function calcPassive(){
     if(!b||b.bankrupt) return;
     var bz=BIZ[b.type];
     var i=bz.inc*Math.pow(bz.um,b.level-1);
-    i*=(G.prestigeMult||1)*(G.marketMult||1)*(G.allMult||1)*(G.passiveMult||1)*(G.milestoneMult||1)*(G.watchAdMult||1);
+    i*=(G.prestigeMult||1)*(G.marketMult||1)*(G.allMult||1)*(G.passiveMult||1)*(G.milestoneMult||1);
     t+=i;
   });
   return t;
 }
 
 function getTapInc(){
-  return (G.tapPwr||0.5)*(G.tapMlt||1)*(G.allMult||1)*(G.tapMult2||1)*(G.milestoneMult||1)*(G.watchAdMult||1);
+  return (G.tapPwr||0.5)*(G.tapMlt||1)*(G.allMult||1)*(G.tapMult2||1)*(G.milestoneMult||1);
 }
 
 function getBizInc(b){
   if(!b||b.bankrupt) return 0;
   var bz=BIZ[b.type];
   var i=bz.inc*Math.pow(bz.um,b.level-1);
-  i*=(G.prestigeMult||1)*(G.marketMult||1)*(G.allMult||1)*(G.passiveMult||1)*(G.milestoneMult||1)*(G.watchAdMult||1);
+  i*=(G.prestigeMult||1)*(G.marketMult||1)*(G.allMult||1)*(G.passiveMult||1)*(G.milestoneMult||1);
   return i;
 }
 
@@ -736,9 +760,16 @@ function getBuildCost(type){
 // ═══════════════════════
 
 var _lt=0;
+var _lastTouchTap=0;
 window.doTap=function(e){
-  if(e&&e.type==='touchstart') e.preventDefault();
   var now=Date.now();
+  if(e&&e.type==='touchstart'){
+    e.preventDefault();
+    _lastTouchTap=now;
+  } else if(e&&e.type==='click'){
+    // If a touchstart fired within 500ms, skip the click (it's a ghost click)
+    if(now-_lastTouchTap<500) return;
+  }
   if(now-_lt<80) return;
   _lt=now;
   var earn=getTapInc();
@@ -753,7 +784,7 @@ window.doTap=function(e){
   fl.style.top=(r?r.top-10:180)+'px';
   document.body.appendChild(fl);
   setTimeout(function(){if(fl.parentNode)fl.parentNode.removeChild(fl);},1000);
-  updateTop(); checkCollectibles();
+  updateTop(); checkCollectibles(); checkTapMilestones();
 };
 
 // ═══════════════════════
@@ -794,40 +825,20 @@ function renderBoosts(){
 
 window.buyBoost=function(i){
   var b=BOOSTS[i];
+  if(!b) return;
   var lvl=G.boosts[b.id]||0;
-  if(lvl>=b.max) return;
+  if(lvl>=b.max){toast('Already maxed!');return;}
   var cost=Math.floor(b.cost*Math.pow(1.7,lvl));
   if(G.balance<cost){toast('Not enough money!');return;}
-  G.balance-=cost; G.boosts[b.id]=lvl+1; b.eff();
+  // Double check balance won't go negative
+  if(G.balance-cost<0){toast('Not enough money!');return;}
+  G.balance-=cost;
+  G.boosts[b.id]=lvl+1;
+  b.eff();
   renderBoosts(); updateTop();
   toast(b.n+' upgraded to Lv'+(lvl+1)+'!');
 };
 
-// ═══════════════════════
-// WATCH AD
-// ═══════════════════════
-
-var _watchCd=0;
-var _watchAppear=90;
-
-window.watchAd=function(){
-  if(G.watchAdTimer>0||_watchCd>0) return;
-  var btn=document.getElementById('watch-ad-btn');
-  if(btn) btn.disabled=true;
-  toast('Ad loading...',2000);
-  setTimeout(function(){
-    G.watchAdMult=2;
-    G.watchAdTimer=15;
-    _watchCd=120;
-    _watchAppear=120;
-    var wrap=document.getElementById('watch-ad-wrap');
-    if(wrap) wrap.style.display='none';
-    var act=document.getElementById('watch-ad-active');
-    if(act) act.classList.add('show');
-    updateTop();
-    toast('2x Income active for 15 seconds!',3000);
-  },1500);
-};
 
 // ═══════════════════════
 // MILESTONES
@@ -838,12 +849,15 @@ function renderMilestones(){
   if(!el) return;
   var earned=G.totalEarned||0;
   var unl=G.milestonesUnlocked||{};
+  var tunl=G.tapMilestonesUnlocked||{};
   var html='';
+
+  // Income milestones
   MILESTONES.forEach(function(m){
     var done=unl[m.id];
     var progress=Math.min(1,earned/m.target);
-    var allDone=MILESTONES.filter(function(x){return !unl[x.id];});
-    var isNext=!done&&allDone.length>0&&allDone[0].id===m.id;
+    var allPending=MILESTONES.filter(function(x){return !unl[x.id];});
+    var isNext=!done&&allPending.length>0&&allPending[0].id===m.id;
     html+='<div class="ms-row '+(done?'done':isNext?'next':'')+'">'
       +'<div class="ms-ico">'+m.icon+'</div>'
       +'<div class="ms-info">'
@@ -851,11 +865,28 @@ function renderMilestones(){
         +'<div class="ms-desc">'+(done?'Unlocked! Income x'+m.mult:'Earn '+fmt(m.target)+' total')+'</div>'
         +(done?'':'<div class="ms-bar"><div class="ms-fill" style="width:'+Math.floor(progress*100)+'%"></div></div>')
       +'</div>'
-      +'<div class="ms-right">'
-        +'<div class="ms-mult">'+(done?'x'+m.mult:Math.floor(progress*100)+'%')+'</div>'
-      +'</div>'
+      +'<div class="ms-right"><div class="ms-mult">'+(done?'x'+m.mult:Math.floor(progress*100)+'%')+'</div></div>'
     +'</div>';
   });
+
+  // Tap milestones section header
+  html+='<div class="ms-hdr" style="margin-top:10px;">👊 TAP MILESTONES</div>';
+  TAP_MILESTONES.forEach(function(m){
+    var done=tunl[m.id];
+    var progress=Math.min(1,(G.totalTaps||0)/m.taps);
+    var allPending=TAP_MILESTONES.filter(function(x){return !tunl[x.id];});
+    var isNext=!done&&allPending.length>0&&allPending[0].id===m.id;
+    html+='<div class="ms-row '+(done?'done':isNext?'next':'')+'">'
+      +'<div class="ms-ico">'+m.icon+'</div>'
+      +'<div class="ms-info">'
+        +'<div class="ms-name">'+m.label+'</div>'
+        +'<div class="ms-desc">'+(done?'Unlocked! +'+fmt(m.bonus)+'/tap':(G.totalTaps||0).toLocaleString()+' / '+m.taps.toLocaleString()+' taps')+'</div>'
+        +(done?'':'<div class="ms-bar"><div class="ms-fill" style="width:'+Math.floor(progress*100)+'%"></div></div>')
+      +'</div>'
+      +'<div class="ms-right"><div class="ms-mult">'+(done?'+'+fmt(m.bonus):Math.floor(progress*100)+'%')+'</div></div>'
+    +'</div>';
+  });
+
   el.innerHTML=html;
 }
 
@@ -871,6 +902,18 @@ function checkMilestones(){
     }
   });
   if(changed) updateTop();
+}
+
+function checkTapMilestones(){
+  if(!G.tapMilestonesUnlocked) G.tapMilestonesUnlocked={};
+  TAP_MILESTONES.forEach(function(m){
+    if(!G.tapMilestonesUnlocked[m.id]&&G.totalTaps>=m.taps){
+      G.tapMilestonesUnlocked[m.id]=true;
+      G.tapPwr=(G.tapPwr||0.5)+m.bonus;
+      toast('TAP MILESTONE: '+m.label+'! +'+fmt(m.bonus)+' per tap!',4000);
+      updateTop();
+    }
+  });
 }
 
 // ═══════════════════════
@@ -935,8 +978,10 @@ window.openAddBiz=function(){
 };
 
 window.buildBiz=function(type){
+  if(!BIZ[type]){toast('Invalid business!');return;}
   var cost=getBuildCost(type);
   if(G.balance<cost){toast('Not enough money!');return;}
+  if(G.balance-cost<0){toast('Not enough money!');return;}
   G.balance-=cost;
   var id='b'+Date.now();
   G.businesses[id]={type:type,level:1,progress:0,bankrupt:false};
@@ -976,6 +1021,7 @@ window.upgBiz=function(id){
   var biz=G.businesses[id];if(!biz||biz.bankrupt) return;
   var cost=getUpgCost(biz);
   if(G.balance<cost){toast('Not enough!');return;}
+  if(G.balance-cost<0){toast('Not enough!');return;}
   G.balance-=cost; biz.level++;
   G.totalUpgrades=(G.totalUpgrades||0)+1;
   closeMod(); renderBizList(); updateTop();
@@ -1126,10 +1172,11 @@ window.confirmTrade=function(){
   var key=window._tKey;var type=window._tType;var action=window._tAction;
   var market=type==='stocks'?G.stocks:G.crypto;
   var st=market[key];
-  var qty=window._tQty||1;
+  if(!st){toast('Invalid trade!');return;}
+  var qty=Math.max(1,Math.floor(window._tQty||1));
   var total=qty*st.price;
   if(action==='buy'){
-    if(G.balance<total){toast('Not enough!');return;}
+    if(G.balance<total||G.balance-total<0){toast('Not enough money!');return;}
     G.balance-=total; st.owned+=qty;
     toast('Bought '+qty+' '+key+' for '+fmt(total));
   } else {
@@ -1164,9 +1211,10 @@ function renderTrading(){
 
 window.doTrade=function(type){
   var betEl=document.getElementById('trade-bet');
-  var bet=parseFloat(betEl?betEl.value:100)||100;
+  var bet=Math.floor(parseFloat(betEl?betEl.value:100)||100);
   if(bet<100){toast('Min bet $100!');return;}
-  if(G.balance<bet){toast('Not enough!');return;}
+  if(bet>G.balance){toast('Not enough money!');return;}
+  if(G.balance-bet<0){toast('Not enough money!');return;}
   G.balance-=bet;
   var won=Math.random()<0.30;
   var now=new Date();
@@ -1183,6 +1231,7 @@ window.doTrade=function(type){
     toast('LOST '+fmt(bet),3000);
   }
   G.tradeHistory.push({type:type==='bull'?'Bull':'Bear',amount:bet,won:won,time:ts});
+  if(G.tradeHistory.length>20) G.tradeHistory=G.tradeHistory.slice(-20);
   G.totalTrades++;
   updateTop(); renderTrading(); checkCollectibles();
 };
@@ -1224,9 +1273,10 @@ window.buyShop=function(id){
   var item=SHOP_ITEMS.filter(function(i){return i.id===id;})[0];
   if(!item) return;
   var owned=G.shopItems[id]||0;
-  if(!item.con&&owned) return;
+  if(!item.con&&owned){toast('Already owned!');return;}
   if(item.con&&owned>=item.max){toast('Max uses reached!');return;}
   if(G.balance<item.cost){toast('Not enough money!');return;}
+  if(G.balance-item.cost<0){toast('Not enough money!');return;}
   G.balance-=item.cost;
   if(item.con){
     G.shopItems[id]=(G.shopItems[id]||0)+1;
@@ -1234,9 +1284,9 @@ window.buyShop=function(id){
     toast(item.n+' used! ('+G.shopItems[id]+'/'+item.max+')');
   } else {
     G.shopItems[id]=true; G.shopOwned++;
-    if(item.bt==='all') G.allMult+=item.bonus;
-    if(item.bt==='tap') G.tapMult2+=item.bonus;
-    if(item.bt==='passive') G.passiveMult+=item.bonus;
+    if(item.bt==='all') G.allMult+=(item.bonus||0);
+    if(item.bt==='tap') G.tapMult2+=(item.bonus||0);
+    if(item.bt==='passive') G.passiveMult+=(item.bonus||0);
     toast(item.n+' purchased!');
   }
   renderShop(); updateTop(); checkCollectibles();
@@ -1350,12 +1400,15 @@ window.prestige=function(){
   if(getNW()<1e9){toast('Need $1B net worth!');return;}
   G.prestigeCount++; G.prestigeMult=Math.pow(2,G.prestigeCount);
   G.balance=0;G.totalEarned=0;G.businesses={};
-  G.tapPwr=0.5;G.tapMlt=1;G.autoTap=0;G.allMult=1;G.tapMult2=1;G.passiveMult=1;
+  G.tapPwr=0.5;G.tapMlt=1;G.tapMult2=1;G.autoTap=0;G.allMult=1;G.passiveMult=1;
   G.boosts={};G.shopItems={};G.shopOwned=0;
+  // Reset ALL multipliers that could be exploited carry-over
+  G.milestoneMult=1;G.milestonesUnlocked={};G.tapMilestonesUnlocked={};
+  G.marketMult=1;G.marketEvent=null;G.marketTimer=0;
   Object.values(G.stocks).forEach(function(s){s.owned=0;});
   Object.values(G.crypto).forEach(function(c){c.owned=0;});
-  renderSettings();renderBizList();updateTop();checkCollectibles();
-  toast('PRESTIGE! '+G.prestigeMult+'x multiplier forever!');
+  renderSettings();renderBizList();updateTop();checkCollectibles();renderMilestones();
+  toast('PRESTIGE '+G.prestigeCount+'! '+G.prestigeMult+'x income multiplier forever!');
 };
 
 window.confirmReset=function(){if(confirm('Reset everything?')) hardReset();};
@@ -1376,8 +1429,8 @@ function triggerEvent(){
   var ev=EVENTS[Math.floor(Math.random()*EVENTS.length)];
   toast(ev.msg,4000);
   if(ev.mult&&ev.dur){
-    if(ev.tapOnly) G.tapMult2*=ev.mult;
-    else{G.marketMult=ev.mult;G.marketEvent=ev.type;G.marketTimer=ev.dur;}
+    // All timed events go through marketMult (resets automatically when timer expires)
+    G.marketMult=ev.mult;G.marketEvent=ev.type;G.marketTimer=ev.dur;
   }
   if(ev.type==='tax'&&G.balance>200){G.balance-=G.balance*0.12;}
   if(ev.type==='scandal'){
@@ -1462,36 +1515,6 @@ function loop(){
   var dt=Math.min((now-lastT)/1000,0.1);
   lastT=now;
 
-  // Watch ad timer
-  if(G.watchAdTimer>0){
-    G.watchAdTimer-=dt;
-    if(G.watchAdTimer<=0){
-      G.watchAdMult=1;G.watchAdTimer=0;
-      var act=document.getElementById('watch-ad-active');
-      if(act) act.classList.remove('show');
-      toast('2x bonus ended');
-    } else {
-      var cnt=document.getElementById('waa-countdown');
-      if(cnt) cnt.textContent=Math.ceil(G.watchAdTimer)+'s';
-    }
-  }
-  if(_watchCd>0){
-    _watchCd-=dt;
-    if(_watchCd<=0) _watchCd=0;
-  }
-
-  // Watch ad appear timer
-  if(_watchAppear>0){
-    _watchAppear-=dt;
-    if(_watchAppear<=0){
-      _watchAppear=0;
-      var wrap=document.getElementById('watch-ad-wrap');
-      if(wrap) wrap.style.display='block';
-      var btn=document.getElementById('watch-ad-btn');
-      if(btn){btn.disabled=false;btn.textContent='📺 Watch Ad — 2x Income for 15s';}
-    }
-  }
-
   // Market event decay
   if(G.marketTimer>0){G.marketTimer-=dt;if(G.marketTimer<=0){G.marketMult=1;G.marketEvent=null;}}
 
@@ -1537,7 +1560,7 @@ function loop(){
       });
     }
     floatAcc={};
-    document.getElementById('top-rate').textContent='+'+fmt(passive)+'/s'+(G.watchAdMult>1?' 2x':'');
+    document.getElementById('top-rate').textContent='+'+fmt(passive)+'/s';
     document.getElementById('ts3').textContent=fmt(passive)+'/s';
   }
 
@@ -1552,7 +1575,7 @@ function loop(){
     if(activeTab==='forbes') renderForbes();
     if(activeTab==='settings') renderSettings();
     if(activeTab==='empire') document.getElementById('empire-sub').textContent=fmt(calcPassive())+'/s • '+Object.keys(G.businesses).length+' businesses';
-    checkCollectibles(); checkMilestones(); saveG();
+    checkCollectibles(); checkMilestones(); checkTapMilestones(); saveG();
     renderMilestones();
   }
 
